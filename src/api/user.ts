@@ -10,10 +10,21 @@ export interface User {
     };
     createdTime: string;
     active: boolean;
-    roles?: {
+    superuser: boolean;
+    role?: {
         id: number;
         name: string;
-    }[];
+    };
+}
+
+export interface UserPayload {
+    id?: number;
+    username: string;
+    email: string;
+    active?: boolean;
+    deptId?: number;
+    roleId?: number | null;
+    password?: string;
 }
 
 export interface PageResult<T> {
@@ -34,21 +45,60 @@ export const userApi = {
             params: query as any
         })
     },
-    save: (data: Partial<User> & { roleIds?: number[]; deptId?: number }) => {
+    get: (id: number) => {
+        return request<User>(`/api/sys/user/${id}`, {
+            method: 'GET'
+        })
+    },
+    create: (data: UserPayload & { password: string }) => {
+        return request<User>('/api/sys/user', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        })
+    },
+    update: (data: UserPayload & { id: number }) => {
+        return request<User>('/api/sys/user', {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        })
+    },
+    save: (data: UserPayload) => {
         if (data.id) {
-            return request<number>('/api/sys/user', {
+            return request<User>('/api/sys/user', {
                 method: 'PUT',
                 body: JSON.stringify(data)
             })
         } else {
-            return request<number>('/api/sys/user', {
+            return request<User>('/api/sys/user', {
                 method: 'POST',
                 body: JSON.stringify(data)
             })
         }
     },
+    changePassword: (data: { id: number; password: string }) => {
+        return request<void>('/api/sys/user/password', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        })
+    },
+    changeSelfPassword: (data: { password: string }) => {
+        return request<void>('/api/sys/user/password/self', {
+            method: 'POST',
+            body: JSON.stringify(data)
+        })
+    },
     delete: (id: number) => {
         return request<void>(`/api/sys/user/${id}`, {
+            method: 'DELETE'
+        })
+    },
+    onlineUsers: () => {
+        return request<any[]>('/api/sys/user/online', {
+            method: 'GET'
+        })
+    },
+    kickout: (userId: number) => {
+        return request<void>(`/api/sys/user/online/${userId}`, {
             method: 'DELETE'
         })
     }

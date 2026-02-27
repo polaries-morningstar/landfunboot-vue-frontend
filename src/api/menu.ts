@@ -10,9 +10,7 @@ export interface Menu {
     };
     permission?: string;
     path?: string;
-    component?: string;
     icon?: string;
-    sort?: number;
     type?: 'DIR' | 'MENU' | 'BUTTON';
     children?: Menu[];
 }

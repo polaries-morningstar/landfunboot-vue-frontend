@@ -24,8 +24,10 @@ import {
 } from '@/components/ui/alert-dialog'
 import { useToast } from '@/components/ui/toast/use-toast'
 import { Badge } from '@/components/ui/badge'
+import { useAuth } from '@/composables/useAuth'
 
 const { toast } = useToast()
+const { hasPermission } = useAuth()
 const loading = ref(false)
 const rawData = ref<Menu[]>([])
 const displayData = ref<(Menu & { level: number, expanded?: boolean, hasChildren?: boolean })[]>([])
@@ -110,7 +112,7 @@ onMounted(() => {
   <div class="flex items-center justify-between space-y-2 mb-4">
     <h2 class="text-3xl font-bold tracking-tight">菜单管理</h2>
     <div class="flex items-center space-x-2">
-      <Button @click="handleAdd">
+      <Button v-if="hasPermission('sys:menu:add')" @click="handleAdd">
           <Plus class="h-4 w-4 mr-2" />
           添加菜单
       </Button>
@@ -124,13 +126,12 @@ onMounted(() => {
           <TableHead>名称</TableHead>
           <TableHead>类型</TableHead>
           <TableHead>路径/权限</TableHead>
-          <TableHead>排序</TableHead>
           <TableHead class="text-right">操作</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         <TableRow v-if="loading">
-             <TableCell colspan="5" class="h-24 text-center">加载中...</TableCell>
+             <TableCell colspan="4" class="h-24 text-center">加载中...</TableCell>
         </TableRow>
         <template v-else>
             <TableRow v-for="item in displayData" :key="item.id">
@@ -153,8 +154,8 @@ onMounted(() => {
                   </div>
               </TableCell>
               <TableCell>
-                  <Badge :variant="item.type === 'MENU' ? 'default' : 'secondary'">
-                      {{ item.type === 'MENU' ? '菜单' : '按钮' }}
+                  <Badge :variant="item.type === 'DIR' ? 'outline' : item.type === 'MENU' ? 'default' : 'secondary'">
+                      {{ item.type === 'DIR' ? '目录' : item.type === 'MENU' ? '菜单' : '按钮' }}
                   </Badge>
               </TableCell>
               <TableCell>
@@ -163,14 +164,13 @@ onMounted(() => {
                       <span v-if="item.permission" class="text-xs font-mono bg-slate-100 px-1 rounded">{{ item.permission }}</span>
                   </div>
               </TableCell>
-              <TableCell>{{ item.sort }}</TableCell>
               <TableCell class="text-right">
                  <div class="flex justify-end gap-2">
-                    <Button variant="ghost" size="icon" @click="handleEdit(item)" class="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-50">
+                    <Button v-if="hasPermission('sys:menu:update')" variant="ghost" size="icon" @click="handleEdit(item)" class="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-50" title="编辑">
                         <Pencil class="h-4 w-4" />
                         <span class="sr-only">编辑</span>
                     </Button>
-                    <Button variant="ghost" size="icon" @click="handleDeleteClick(item.id)" class="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50">
+                    <Button v-if="hasPermission('sys:menu:delete')" variant="ghost" size="icon" @click="handleDeleteClick(item.id)" class="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" title="删除">
                         <Trash2 class="h-4 w-4" />
                         <span class="sr-only">删除</span>
                     </Button>
@@ -178,7 +178,7 @@ onMounted(() => {
               </TableCell>
             </TableRow>
             <TableRow v-if="!loading && displayData.length === 0">
-                 <TableCell colspan="5" class="h-24 text-center">暂无数据</TableCell>
+                 <TableCell colspan="4" class="h-24 text-center">暂无数据</TableCell>
             </TableRow>
         </template>
       </TableBody>

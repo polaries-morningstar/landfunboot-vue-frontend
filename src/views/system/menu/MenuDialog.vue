@@ -53,9 +53,7 @@ const formSchema = toTypedSchema(
     parentId: z.number().nullable().default(null),
     permission: z.string().optional(),
     path: z.string().optional(),
-    component: z.string().optional(),
     icon: z.string().optional(),
-    sort: z.number().default(0),
   })
 )
 
@@ -63,8 +61,7 @@ const form = useForm({
   validationSchema: formSchema,
   initialValues: {
     type: 'MENU',
-    parentId: null,
-    sort: 0
+    parentId: null
   }
 })
 
@@ -116,9 +113,7 @@ watch(() => props.open, (newVal) => {
           parentId: props.menu.parent?.id || null,
           permission: props.menu.permission || '',
           path: props.menu.path || '',
-          component: props.menu.component || '',
-          icon: props.menu.icon || '',
-          sort: props.menu.sort || 0
+          icon: props.menu.icon || ''
       })
     } else {
       form.resetForm({
@@ -128,9 +123,7 @@ watch(() => props.open, (newVal) => {
               parentId: null,
               permission: '',
               path: '',
-              component: '',
-              icon: '',
-              sort: 0
+              icon: ''
           }
       })
     }
@@ -229,34 +222,18 @@ const onFormSubmit = form.handleSubmit(async (values) => {
                     <FormMessage />
                   </FormItem>
                 </FormField>
-            </template>
-
-            <template v-if="form.values.type === 'MENU'">
-
-                <FormField v-slot="{ componentField }" name="component">
-                  <FormItem>
-                    <FormLabel>组件路径</FormLabel>
-                    <FormControl>
-                      <Input placeholder="system/user/index" v-bind="componentField" />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                </FormField>
-
-            </template>
-
-            <template v-if="form.values.type !== 'BUTTON'">
                 <FormField v-slot="{ componentField }" name="icon">
                   <FormItem>
-                    <FormLabel>图标</FormLabel>
+                    <FormLabel>图标 (Lucide)</FormLabel>
                     <FormControl>
-                      <Input placeholder="lucide 图标名" v-bind="componentField" />
+                      <Input placeholder="Search, Users, etc." v-bind="componentField" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 </FormField>
-
             </template>
+
+
 
             <FormField v-slot="{ componentField }" name="permission">
               <FormItem :class="form.values.type !== 'DIR' ? '' : 'col-span-2'">
@@ -268,15 +245,7 @@ const onFormSubmit = form.handleSubmit(async (values) => {
               </FormItem>
             </FormField>
 
-            <FormField v-slot="{ componentField }" name="sort">
-              <FormItem>
-                <FormLabel>排序</FormLabel>
-                <FormControl>
-                  <Input type="number" v-bind="componentField" @input="(v: any) => form.setFieldValue('sort', Number(v.target.value))" />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            </FormField>
+
         </div>
 
         <DialogFooter>

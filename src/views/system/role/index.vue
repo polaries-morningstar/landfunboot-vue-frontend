@@ -25,8 +25,10 @@ import {
 } from '@/components/ui/alert-dialog'
 import { useToast } from '@/components/ui/toast/use-toast'
 import { Badge } from '@/components/ui/badge'
+import { useAuth } from '@/composables/useAuth'
 
 const { toast } = useToast()
+const { hasPermission } = useAuth()
 const loading = ref(false)
 const data = ref<Role[]>([])
 const total = ref(0)
@@ -40,7 +42,7 @@ const deletingRoleId = ref<number | null>(null)
 const query = reactive<BasePageQuery>({
     page: 1,
     size: 10,
-    sort: 'id desc'
+    sort: 'id,desc'
 })
 
 const fetchData = async () => {
@@ -106,7 +108,7 @@ onMounted(() => {
   <div class="flex items-center justify-between space-y-2 mb-4">
     <h2 class="text-3xl font-bold tracking-tight">角色管理</h2>
     <div class="flex items-center space-x-2">
-      <Button @click="handleAdd">
+      <Button v-if="hasPermission('sys:role:add')" @click="handleAdd">
           <Plus class="h-4 w-4 mr-2" />
           添加角色
       </Button>
@@ -142,11 +144,11 @@ onMounted(() => {
               <TableCell>{{ item.description || '-' }}</TableCell>
               <TableCell class="text-right">
                  <div class="flex justify-end gap-2">
-                    <Button variant="ghost" size="icon" @click="handleEdit(item)" class="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-50">
+                    <Button v-if="hasPermission('sys:role:update')" variant="ghost" size="icon" @click="handleEdit(item)" class="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-50" title="编辑">
                         <Pencil class="h-4 w-4" />
                         <span class="sr-only">编辑</span>
                     </Button>
-                    <Button variant="ghost" size="icon" @click="handleDeleteClick(item.id)" class="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50">
+                    <Button v-if="hasPermission('sys:role:delete')" variant="ghost" size="icon" @click="handleDeleteClick(item.id)" class="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" title="删除">
                         <Trash2 class="h-4 w-4" />
                         <span class="sr-only">删除</span>
                     </Button>
@@ -162,7 +164,7 @@ onMounted(() => {
     
     <div class="flex items-center justify-end space-x-2 py-4 px-4">
         <div class="flex-1 text-sm text-muted-foreground">
-          共 {{ total }} 条记录
+          共 {{ total }} 条记录，第 {{ query.page }} / {{ Math.max(1, Math.ceil(total / (query.size || 10))) }} 页
         </div>
         <div class="space-x-2">
           <Button

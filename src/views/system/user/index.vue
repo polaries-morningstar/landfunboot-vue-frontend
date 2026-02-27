@@ -18,8 +18,14 @@ import { Button } from '@/components/ui/button'
 //   DropdownMenuTrigger,
 // } from '@/components/ui/dropdown-menu'
 import { userApi, type User, type BasePageQuery } from '@/api/user'
-import { Pencil, Trash2, Plus } from 'lucide-vue-next'
+import { Pencil, Trash2, Plus, KeyRound } from 'lucide-vue-next'
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from '@/components/ui/hover-card'
 import UserDialog from './UserDialog.vue'
+import ResetPasswordDialog from './ResetPasswordDialog.vue'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -31,8 +37,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useToast } from '@/components/ui/toast/use-toast'
+import { useAuth } from '@/composables/useAuth'
 
 const { toast } = useToast()
+const { hasPermission } = useAuth()
 const loading = ref(false)
 const data = ref<User[]>([])
 const total = ref(0)
@@ -42,11 +50,13 @@ const dialogOpen = ref(false)
 const editingUser = ref<User | null>(null)
 const deleteConfirmOpen = ref(false)
 const deletingUserId = ref<number | null>(null)
+const resetPasswordDialogOpen = ref(false)
+const resetPasswordUserId = ref<number | null>(null)
 
 const query = reactive<BasePageQuery>({
     page: 1,
     size: 10,
-    sort: 'createdTime desc'
+    sort: 'createdTime,desc'
 })
 
 const fetchData = async () => {
@@ -77,6 +87,11 @@ const handleEdit = (user: User) => {
     dialogOpen.value = true
 }
 
+const handleResetPassword = (id: number) => {
+    resetPasswordUserId.value = id
+    resetPasswordDialogOpen.value = true
+}
+
 const handleDeleteClick = (id: number) => {
     deletingUserId.value = id
     deleteConfirmOpen.value = true
@@ -103,7 +118,7 @@ onMounted(() => {
   <div class="flex items-center justify-between space-y-2">
     <h2 class="text-3xl font-bold tracking-tight">用户管理</h2>
     <div class="flex items-center space-x-2">
-      <Button @click="handleAdd">
+      <Button v-if="hasPermission('sys:user:add')" @click="handleAdd">
           <Plus class="h-4 w-4 mr-2" />
           添加用户
       </Button>
@@ -131,14 +146,26 @@ onMounted(() => {
         <template v-else>
             <TableRow v-for="item in data" :key="item.id">
               <TableCell class="font-medium">{{ item.id }}</TableCell>
-              <TableCell>{{ item.username }}</TableCell>
+              <TableCell>
+                <div class="flex items-center gap-2">
+                  <span>{{ item.username }}</span>
+                  <span
+                    v-if="item.superuser"
+                    class="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-700 border-amber-200"
+                  >
+                    超级管理员
+                  </span>
+                </div>
+              </TableCell>
               <TableCell>{{ item.email }}</TableCell>
               <TableCell>
-                  <div class="flex flex-wrap gap-1">
-                      <span v-for="role in item.roles" :key="role.id" class="inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80">
-                          {{ role.name }}
-                      </span>
-                  </div>
+                <span
+                  v-if="item.role"
+                  class="inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 border-transparent bg-secondary text-secondary-foreground"
+                >
+                  {{ item.role.name }}
+                </span>
+                <span v-else class="text-muted-foreground text-sm">-</span>
               </TableCell>
               <TableCell>{{ item.dept?.name || '-' }}</TableCell>
               <TableCell>
@@ -152,11 +179,15 @@ onMounted(() => {
               <TableCell>{{ new Date(item.createdTime).toLocaleString() }}</TableCell>
               <TableCell class="text-right">
                  <div class="flex justify-end gap-2">
-                    <Button variant="ghost" size="icon" @click="handleEdit(item)" class="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-50">
+                    <Button v-if="hasPermission('sys:user:update')" variant="ghost" size="icon" @click="handleResetPassword(item.id)" class="h-8 w-8 text-orange-500 hover:text-orange-600 hover:bg-orange-50" title="重置密码">
+                        <KeyRound class="h-4 w-4" />
+                        <span class="sr-only">重置密码</span>
+                    </Button>
+                    <Button v-if="hasPermission('sys:user:update')" variant="ghost" size="icon" @click="handleEdit(item)" class="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-50" title="编辑">
                         <Pencil class="h-4 w-4" />
                         <span class="sr-only">编辑</span>
                     </Button>
-                    <Button variant="ghost" size="icon" @click="handleDeleteClick(item.id)" class="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50">
+                    <Button v-if="hasPermission('sys:user:delete') && !item.superuser" variant="ghost" size="icon" @click="handleDeleteClick(item.id)" class="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50">
                         <Trash2 class="h-4 w-4" />
                         <span class="sr-only">删除</span>
                     </Button>
@@ -173,7 +204,7 @@ onMounted(() => {
     <!-- Simple Pagination -->
     <div class="flex items-center justify-end space-x-2 py-4 px-4">
         <div class="flex-1 text-sm text-muted-foreground">
-          共 {{ total }} 条记录
+          共 {{ total }} 条记录，第 {{ query.page }} / {{ Math.max(1, Math.ceil(total / (query.size || 10))) }} 页
         </div>
         <div class="space-x-2">
           <Button
@@ -200,6 +231,12 @@ onMounted(() => {
   <UserDialog 
     v-model:open="dialogOpen" 
     :user="editingUser" 
+    @success="fetchData" 
+  />
+
+  <ResetPasswordDialog 
+    v-model:open="resetPasswordDialogOpen" 
+    :userId="resetPasswordUserId" 
     @success="fetchData" 
   />
 

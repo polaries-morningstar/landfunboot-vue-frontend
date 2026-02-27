@@ -29,7 +29,6 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { Checkbox } from '@/components/ui/checkbox'
 import { userApi, type User } from '@/api/user'
 import { roleApi, type Role } from '@/api/role'
 import { deptApi, type Dept } from '@/api/dept'
@@ -49,6 +48,7 @@ const { toast } = useToast()
 const roles = ref<Role[]>([])
 const depts = ref<Dept[]>([])
 const loading = ref(false)
+const active = ref(true)
 
 const formSchema = toTypedSchema(
   z.object({
@@ -56,17 +56,16 @@ const formSchema = toTypedSchema(
     username: z.string().min(2, '用户名至少2个字符'),
     email: z.string().email('请输入有效的邮箱地址'),
     password: z.string().min(6, '密码至少6个字符').optional().or(z.literal('')),
-    active: z.boolean().default(true),
+    // active 独立用 ref 管理
     deptId: z.number().optional(),
-    roleIds: z.array(z.number()).default([]),
+    roleId: z.number().optional(),
   })
 )
 
 const form = useForm({
   validationSchema: formSchema,
   initialValues: {
-    active: true,
-    roleIds: [],
+    roleId: undefined,
   }
 })
 
@@ -92,44 +91,61 @@ const fetchOptions = async () => {
     }
 }
 
-watch(() => props.open, (newVal) => {
+watch(() => props.open, async (newVal) => {
   if (newVal) {
     fetchOptions()
     if (props.user) {
-      form.setValues({
-          id: props.user.id,
-          username: props.user.username,
-          email: props.user.email,
-          active: props.user.active,
-          deptId: props.user.dept?.id,
-          roleIds: props.user.roles?.map(r => r.id) || [],
-          password: '' // Don't set password for edit
-      })
+      // Re-fetch fresh user data from server to avoid showing stale roles
+      try {
+        const freshUser = await userApi.get(props.user.id)
+        form.setValues({
+            id: freshUser.id,
+            username: freshUser.username,
+            email: freshUser.email,
+            deptId: freshUser.dept?.id,
+            roleId: freshUser.role?.id
+        })
+        active.value = freshUser.active
+      } catch (e) {
+        // Fallback to prop data if fetch fails
+        form.setValues({
+            id: props.user.id,
+            username: props.user.username,
+            email: props.user.email,
+            deptId: props.user.dept?.id,
+            roleId: props.user.role?.id
+        })
+        active.value = props.user.active
+      }
     } else {
       form.resetForm({
           values: {
               username: '',
               email: '',
               password: '',
-              active: true,
-              roleIds: [],
+              roleId: undefined,
               deptId: undefined
           }
       })
+      active.value = true
     }
   }
 })
 
-// onSubmit handler
 const onFormSubmit = form.handleSubmit(async (values) => {
   loading.value = true
   try {
-    // If edit and password is empty, remove it from payload
-    const payload = { ...values }
-    if (payload.id && !payload.password) {
-        delete payload.password
+    const payload = {
+      id: values.id,
+      username: values.username,
+      email: values.email,
+      active: active.value,
+      deptId: values.deptId,
+      roleId: values.roleId ?? null,
+      password: values.password || undefined,
     }
-    
+    console.log('Submitting payload:', payload)
+
     await userApi.save(payload as any)
     toast({
       title: props.user ? '修改成功' : '添加成功',
@@ -138,7 +154,7 @@ const onFormSubmit = form.handleSubmit(async (values) => {
     emit('success')
     emit('update:open', false)
   } catch (error: any) {
-     // Error handled by request interceptor usually
+    // Error handled by request interceptor usually
   } finally {
     loading.value = false
   }
@@ -147,7 +163,7 @@ const onFormSubmit = form.handleSubmit(async (values) => {
 
 <template>
   <Dialog :open="open" @update:open="emit('update:open', $event)">
-    <DialogContent class="sm:max-w-[425px]">
+    <DialogContent class="sm:max-w-[600px]">
       <DialogHeader>
         <DialogTitle>{{ user ? '编辑用户' : '添加用户' }}</DialogTitle>
         <DialogDescription>
@@ -155,105 +171,103 @@ const onFormSubmit = form.handleSubmit(async (values) => {
         </DialogDescription>
       </DialogHeader>
       
-      <form @submit="onFormSubmit" class="space-y-4 py-4">
-        <FormField v-slot="{ componentField }" name="username">
-          <FormItem>
-            <FormLabel>用户名</FormLabel>
-            <FormControl>
-              <Input placeholder="请输入用户名" v-bind="componentField" />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        </FormField>
-
-        <FormField v-slot="{ componentField }" name="email">
-          <FormItem>
-            <FormLabel>邮箱</FormLabel>
-            <FormControl>
-              <Input placeholder="admin@example.com" v-bind="componentField" />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        </FormField>
-
-        <FormField v-slot="{ componentField }" name="password">
-          <FormItem>
-            <FormLabel>密码 {{ user ? '(不修改请留空)' : '' }}</FormLabel>
-            <FormControl>
-              <Input type="password" placeholder="******" v-bind="componentField" />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        </FormField>
-
-        <FormField v-slot="{ value, handleChange }" name="deptId">
-          <FormItem>
-            <FormLabel>部门</FormLabel>
-            <Select :model-value="value?.toString()" @update:model-value="v => handleChange(Number(v))">
+      <div class="max-h-[85vh] overflow-y-auto px-1 py-4">
+        <form @submit="onFormSubmit" class="space-y-4 pr-1">
+          <FormField v-slot="{ componentField }" name="username">
+            <FormItem>
+              <FormLabel>用户名</FormLabel>
               <FormControl>
-                <SelectTrigger>
-                  <SelectValue placeholder="选择部门" />
-                </SelectTrigger>
+                <Input placeholder="请输入用户名" v-bind="componentField" />
               </FormControl>
-              <SelectContent>
-                <SelectItem v-for="dept in depts" :key="dept.id" :value="dept.id.toString()">
-                  <pre class="m-0 font-sans">{{ dept.name }}</pre>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <FormMessage />
-          </FormItem>
-        </FormField>
+              <FormMessage />
+            </FormItem>
+          </FormField>
 
-        <FormField name="roleIds">
-          <FormItem>
-            <FormLabel>角色</FormLabel>
-            <div class="grid grid-cols-2 gap-2 mt-2">
-                <div v-for="role in roles" :key="role.id" class="flex items-center space-x-2">
-                    <Checkbox 
-                        :id="'role-' + role.id" 
-                        :checked="form.values.roleIds?.includes(role.id)"
-                        @update:checked="(checked: boolean) => {
-                            const current = [...(form.values.roleIds || [])]
-                            if (checked) {
-                                form.setFieldValue('roleIds', [...current, role.id])
-                            } else {
-                                form.setFieldValue('roleIds', current.filter(id => id !== role.id))
-                            }
-                        }"
-                    />
-                    <label :for="'role-' + role.id" class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                        {{ role.name }}
-                    </label>
-                </div>
-            </div>
-            <FormMessage />
-          </FormItem>
-        </FormField>
+          <FormField v-slot="{ componentField }" name="email">
+            <FormItem>
+              <FormLabel>邮箱</FormLabel>
+              <FormControl>
+                <Input placeholder="admin@example.com" v-bind="componentField" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          </FormField>
 
-        <FormField v-slot="{ value, handleChange }" name="active">
-          <FormItem class="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+          <FormField v-if="!user" v-slot="{ componentField }" name="password">
+            <FormItem>
+              <FormLabel>密码</FormLabel>
+              <FormControl>
+                <Input type="password" placeholder="******" v-bind="componentField" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          </FormField>
+
+          <FormField v-slot="{ value, handleChange }" name="deptId">
+            <FormItem>
+              <FormLabel>部门</FormLabel>
+              <Select :model-value="value?.toString()" @update:model-value="v => handleChange(Number(v))">
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择部门" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem v-for="dept in depts" :key="dept.id" :value="dept.id.toString()">
+                    <pre class="m-0 font-sans">{{ dept.name }}</pre>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          </FormField>
+
+          <FormField v-slot="{ value, handleChange }" name="roleId">
+            <FormItem>
+              <FormLabel>角色</FormLabel>
+              <Select
+                :model-value="value != null ? value.toString() : undefined"
+                @update:model-value="v => handleChange(v ? Number(v) : undefined)"
+              >
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择角色" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem
+                    v-for="role in roles"
+                    :key="role.id"
+                    :value="role.id.toString()"
+                  >
+                    {{ role.name }}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          </FormField>
+
+          <div class="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
             <div class="space-y-0.5">
-              <FormLabel>账户启用状态</FormLabel>
-              <div class="text-[0.8rem] text-muted-foreground">
-                禁用后该账户将无法登录系统
+              <span class="text-sm font-medium leading-none">系统访问权限</span>
+              <div class="text-[0.8rem]" :class="active ? 'text-green-600' : 'text-red-500'">
+                {{ active ? '当前状态：允许登录 (开启)' : '当前状态：禁止登录 (关闭)' }}
               </div>
             </div>
-            <FormControl>
-              <Switch :checked="value" @update:checked="handleChange" />
-            </FormControl>
-          </FormItem>
-        </FormField>
+            <Switch v-model="active" />
+          </div>
 
-        <DialogFooter>
-          <Button type="button" variant="outline" @click="emit('update:open', false)">
-            取消
-          </Button>
-          <Button type="submit" :disabled="loading">
-            {{ loading ? '保存中...' : '保存' }}
-          </Button>
-        </DialogFooter>
-      </form>
+          <DialogFooter class="mt-6 pt-2 border-t">
+            <Button type="button" variant="outline" @click="emit('update:open', false)">
+              取消
+            </Button>
+            <Button type="submit" :disabled="loading">
+              {{ loading ? '保存中...' : '保存' }}
+            </Button>
+          </DialogFooter>
+        </form>
+      </div>
     </DialogContent>
   </Dialog>
 </template>

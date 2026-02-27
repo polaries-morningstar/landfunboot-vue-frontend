@@ -28,7 +28,6 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { Checkbox } from '@/components/ui/checkbox'
 import { roleApi, type Role } from '@/api/role'
 import { deptApi, type Dept } from '@/api/dept'
 import { menuApi, type Menu } from '@/api/menu'
@@ -71,6 +70,8 @@ const form = useForm({
 
 const depts = ref<(Dept & { level: number })[]>([])
 const menus = ref<(Menu & { level: number })[]>([])
+const selectedMenus = ref<number[]>([])
+const selectedDepts = ref<number[]>([])
 
 const fetchMenus = async () => {
   if (menus.value.length > 0) return
@@ -129,9 +130,11 @@ const fetchRoleDetails = async (id: number) => {
     // deptIds: res.deptIds || (res as any).depts?.map((d: any) => d.id) || []
     
     const ids = res.deptIds || (res as any).depts?.map((d: any) => d.id) || []
+    selectedDepts.value = ids
     form.setFieldValue('deptIds', ids)
 
     const mIds = res.menuIds || (res as any).menus?.map((m: any) => m.id) || []
+    selectedMenus.value = mIds
     form.setFieldValue('menuIds', mIds)
     
     
@@ -158,6 +161,8 @@ watch(() => props.open, (newVal) => {
               menuIds: []
           }
       })
+      selectedMenus.value = []
+      selectedDepts.value = []
     }
   }
 })
@@ -165,7 +170,12 @@ watch(() => props.open, (newVal) => {
 const onFormSubmit = form.handleSubmit(async (values) => {
   loading.value = true
   try {
-    await roleApi.save(values as any)
+    const payload = {
+        ...values,
+        menuIds: [...selectedMenus.value],
+        deptIds: [...selectedDepts.value]
+    }
+    await roleApi.save(payload as any)
     toast({
       title: props.role ? '修改成功' : '添加成功',
       description: `角色 ${values.name} 已${props.role ? '更新' : '添加'}`,
@@ -181,129 +191,124 @@ const onFormSubmit = form.handleSubmit(async (values) => {
 
 <template>
   <Dialog :open="open" @update:open="emit('update:open', $event)">
-    <DialogContent class="sm:max-w-[425px]">
-      <DialogHeader>
+    <DialogContent class="sm:max-w-[600px] p-0 overflow-hidden flex flex-col max-h-[90vh]">
+      <DialogHeader class="p-6 pb-2">
         <DialogTitle>{{ role ? '编辑角色' : '添加角色' }}</DialogTitle>
         <DialogDescription>
           填写角色基本信息及数据权限范围
         </DialogDescription>
       </DialogHeader>
       
-      <form @submit="onFormSubmit" class="space-y-4 py-4">
-        <FormField v-slot="{ componentField }" name="name">
-          <FormItem>
-            <FormLabel>角色名称</FormLabel>
-            <FormControl>
-              <Input placeholder="请输入角色名称" v-bind="componentField" />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        </FormField>
+      <div class="flex-1 overflow-y-auto px-6 py-2">
+        <form @submit="onFormSubmit" id="role-form" class="space-y-4 pb-4">
+          <div class="grid grid-cols-2 gap-4">
+            <FormField v-slot="{ componentField }" name="name">
+              <FormItem>
+                <FormLabel>角色名称</FormLabel>
+                <FormControl>
+                  <Input placeholder="请输入角色名称" v-bind="componentField" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            </FormField>
 
-        <FormField v-slot="{ componentField }" name="code">
-          <FormItem>
-            <FormLabel>角色代码</FormLabel>
-            <FormControl>
-              <Input placeholder="ROLE_ADMIN" v-bind="componentField" />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        </FormField>
+            <FormField v-slot="{ componentField }" name="code">
+              <FormItem>
+                <FormLabel>角色代码</FormLabel>
+                <FormControl>
+                  <Input placeholder="ROLE_ADMIN" v-bind="componentField" />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            </FormField>
+          </div>
 
-        <FormField v-slot="{ value, handleChange }" name="dataScope">
-          <FormItem>
-            <FormLabel>数据范围</FormLabel>
-            <Select :model-value="value" @update:model-value="handleChange">
+          <FormField v-slot="{ value, handleChange }" name="dataScope">
+            <FormItem>
+              <FormLabel>数据范围</FormLabel>
+              <Select :model-value="value" @update:model-value="handleChange">
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择数据范围" />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  <SelectItem value="ALL">所有数据</SelectItem>
+                  <SelectItem value="DEPT_SAME">本部门数据</SelectItem>
+                  <SelectItem value="DEPT_RECURSIVE">本部门及子部门数据</SelectItem>
+                  <SelectItem value="SELF">仅本人数据</SelectItem>
+                  <SelectItem value="DEPT_CUSTOM">自定义部门</SelectItem>
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          </FormField>
+
+          <FormField v-if="form.values.dataScope === 'DEPT_CUSTOM'" name="deptIds">
+              <FormItem>
+                <FormLabel>数据权限部门</FormLabel>
+                <div class="border rounded-md p-3 max-h-[200px] overflow-y-auto space-y-1.5 bg-gray-50/50">
+                   <div v-if="depts.length === 0" class="text-xs text-muted-foreground text-center py-2">正在加载部门...</div>
+                   <div v-for="dept in depts" :key="dept.id" class="flex items-center space-x-2" :style="{ paddingLeft: `${dept.level * 16}px` }">
+                       <input 
+                           type="checkbox"
+                           :id="`dept-${dept.id}`"
+                           :value="dept.id"
+                           v-model="selectedDepts"
+                           class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                       />
+                       <label :for="`dept-${dept.id}`" class="text-sm cursor-pointer select-none py-0.5">{{ dept.name }}</label>
+                   </div>
+                </div>
+                <FormMessage />
+              </FormItem>
+          </FormField>
+
+          <FormField name="menuIds">
+              <FormItem>
+                <FormLabel>菜单权限</FormLabel>
+                <div class="border rounded-md p-3 max-h-[350px] overflow-y-auto space-y-1 bg-gray-50/50">
+                   <div v-if="menus.length === 0" class="text-xs text-muted-foreground text-center py-2">正在加载菜单...</div>
+                   <div v-for="menu in menus" :key="menu.id" class="flex items-center space-x-2 transition-colors hover:bg-blue-50/50 rounded pr-2" :style="{ paddingLeft: `${menu.level * 16}px` }">
+                       <input 
+                           type="checkbox"
+                           :id="`menu-${menu.id}`"
+                           :value="menu.id"
+                           v-model="selectedMenus"
+                           class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                       />
+                       <label :for="`menu-${menu.id}`" class="text-sm cursor-pointer select-none py-1.5 flex items-center flex-1">
+                          <span v-if="menu.type === 'DIR'" class="text-[10px] bg-gray-100 text-gray-500 px-1 rounded mr-1.5 font-bold">DIR</span>
+                          <span v-else-if="menu.type === 'BUTTON'" class="text-[10px] bg-blue-100 text-blue-600 px-1 rounded mr-1.5 font-bold">BTN</span>
+                          <span v-else class="text-[10px] bg-emerald-100 text-emerald-600 px-1 rounded mr-1.5 font-bold">PAGE</span>
+                          {{ menu.name }}
+                       </label>
+                   </div>
+                </div>
+                <FormMessage />
+              </FormItem>
+          </FormField>
+
+          <FormField v-slot="{ componentField }" name="description">
+            <FormItem>
+              <FormLabel>描述</FormLabel>
               <FormControl>
-                <SelectTrigger>
-                  <SelectValue placeholder="选择数据范围" />
-                </SelectTrigger>
+                <Textarea placeholder="请输入角色描述" class="resize-none" v-bind="componentField" />
               </FormControl>
-              <SelectContent>
-                <SelectItem value="ALL">所有数据</SelectItem>
-                <SelectItem value="DEPT_SAME">本部门数据</SelectItem>
-                <SelectItem value="DEPT_RECURSIVE">本部门及子部门数据</SelectItem>
-                <SelectItem value="SELF">仅本人数据</SelectItem>
-                <SelectItem value="DEPT_CUSTOM">自定义部门</SelectItem>
-              </SelectContent>
-            </Select>
-            <FormMessage />
-          </FormItem>
-        </FormField>
-
-        <FormField v-if="form.values.dataScope === 'DEPT_CUSTOM'" name="deptIds">
-            <FormItem>
-              <FormLabel>数据权限部门</FormLabel>
-              <div class="border rounded-md p-4 max-h-[300px] overflow-y-auto space-y-2">
-                 <div v-if="depts.length === 0" class="text-sm text-muted-foreground text-center">正在加载部门...</div>
-                 <div v-for="dept in depts" :key="dept.id" class="flex items-center space-x-2" :style="{ paddingLeft: `${dept.level * 20}px` }">
-                     <Checkbox 
-                         :id="`dept-${dept.id}`"
-                         :checked="form.values.deptIds?.includes(dept.id)"
-                         @update:checked="(checked: boolean) => {
-                             const current = [...(form.values.deptIds || [])]
-                             if (checked) {
-                                 form.setFieldValue('deptIds', [...current, dept.id])
-                             } else {
-                                 form.setFieldValue('deptIds', current.filter(id => id !== dept.id))
-                             }
-                         }"
-                     />
-                     <label :for="`dept-${dept.id}`" class="text-sm cursor-pointer select-none">{{ dept.name }}</label>
-                 </div>
-              </div>
               <FormMessage />
             </FormItem>
-        </FormField>
+          </FormField>
+        </form>
+      </div>
 
-        <FormField name="menuIds">
-            <FormItem>
-              <FormLabel>菜单权限</FormLabel>
-              <div class="border rounded-md p-4 max-h-[400px] overflow-y-auto space-y-2">
-                 <div v-if="menus.length === 0" class="text-sm text-muted-foreground text-center">正在加载菜单...</div>
-                 <div v-for="menu in menus" :key="menu.id" class="flex items-center space-x-2" :style="{ paddingLeft: `${menu.level * 20}px` }">
-                     <Checkbox 
-                         :id="`menu-${menu.id}`"
-                         :checked="form.values.menuIds?.includes(menu.id)"
-                         @update:checked="(checked: boolean) => {
-                             const current = [...(form.values.menuIds || [])]
-                             if (checked) {
-                                 form.setFieldValue('menuIds', [...current, menu.id])
-                             } else {
-                                 form.setFieldValue('menuIds', current.filter(id => id !== menu.id))
-                             }
-                         }"
-                     />
-                     <label :for="`menu-${menu.id}`" class="text-sm cursor-pointer select-none flex items-center">
-                        <span v-if="menu.type === 'DIR'" class="text-muted-foreground mr-1">[目录]</span>
-                        <span v-else-if="menu.type === 'BUTTON'" class="text-green-600 mr-1">[按钮]</span>
-                        {{ menu.name }}
-                     </label>
-                 </div>
-              </div>
-              <FormMessage />
-            </FormItem>
-        </FormField>
-
-        <FormField v-slot="{ componentField }" name="description">
-          <FormItem>
-            <FormLabel>描述</FormLabel>
-            <FormControl>
-              <Textarea placeholder="请输入角色描述" v-bind="componentField" />
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        </FormField>
-
-        <DialogFooter>
-          <Button type="button" variant="outline" @click="emit('update:open', false)">
-            取消
-          </Button>
-          <Button type="submit" :disabled="loading">
-            {{ loading ? '保存中...' : '保存' }}
-          </Button>
-        </DialogFooter>
-      </form>
+      <DialogFooter class="p-6 pt-2 border-t bg-gray-50/30">
+        <Button type="button" variant="outline" @click="emit('update:open', false)">
+          取消
+        </Button>
+        <Button type="submit" form="role-form" :disabled="loading">
+          {{ loading ? '保存中...' : '提交' }}
+        </Button>
+      </DialogFooter>
     </DialogContent>
   </Dialog>
 </template>

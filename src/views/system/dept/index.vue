@@ -23,8 +23,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { useToast } from '@/components/ui/toast/use-toast'
+import { useAuth } from '@/composables/useAuth'
 
 const { toast } = useToast()
+const { hasPermission } = useAuth()
 const loading = ref(false)
 const rawData = ref<Dept[]>([])
 const displayData = ref<(Dept & { level: number, expanded?: boolean, hasChildren?: boolean })[]>([])
@@ -109,7 +111,7 @@ onMounted(() => {
   <div class="flex items-center justify-between space-y-2 mb-4">
     <h2 class="text-3xl font-bold tracking-tight">部门管理</h2>
     <div class="flex items-center space-x-2">
-      <Button @click="handleAdd">
+      <Button v-if="hasPermission('sys:dept:add')" @click="handleAdd">
           <Plus class="h-4 w-4 mr-2" />
           添加部门
       </Button>
@@ -151,11 +153,11 @@ onMounted(() => {
               <TableCell>{{ item.id }}</TableCell>
               <TableCell class="text-right">
                  <div class="flex justify-end gap-2">
-                    <Button variant="ghost" size="icon" @click="handleEdit(item)" class="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-50">
+                    <Button v-if="hasPermission('sys:dept:update')" variant="ghost" size="icon" @click="handleEdit(item)" class="h-8 w-8 text-blue-500 hover:text-blue-600 hover:bg-blue-50" title="编辑">
                         <Pencil class="h-4 w-4" />
                         <span class="sr-only">编辑</span>
                     </Button>
-                    <Button variant="ghost" size="icon" @click="handleDeleteClick(item.id)" class="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50">
+                    <Button v-if="hasPermission('sys:dept:delete')" variant="ghost" size="icon" @click="handleDeleteClick(item.id)" class="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50" title="删除">
                         <Trash2 class="h-4 w-4" />
                         <span class="sr-only">删除</span>
                     </Button>

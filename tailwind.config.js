@@ -56,6 +56,15 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // 侧边栏专属颜色 token
+        sidebar: {
+          DEFAULT: "hsl(var(--sidebar-bg))",
+          text: "hsl(var(--sidebar-text))",
+          "text-muted": "hsl(var(--sidebar-text-muted))",
+          hover: "hsl(var(--sidebar-hover))",
+          active: "hsl(var(--sidebar-active))",
+          border: "hsl(var(--sidebar-border))",
+        },
       },
       borderRadius: {
         xl: "calc(var(--radius) + 4px)",
