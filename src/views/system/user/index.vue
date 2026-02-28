@@ -19,11 +19,6 @@ import { Button } from '@/components/ui/button'
 // } from '@/components/ui/dropdown-menu'
 import { userApi, type User, type BasePageQuery } from '@/api/user'
 import { Pencil, Trash2, Plus, KeyRound } from 'lucide-vue-next'
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from '@/components/ui/hover-card'
 import UserDialog from './UserDialog.vue'
 import ResetPasswordDialog from './ResetPasswordDialog.vue'
 import {
@@ -245,7 +240,7 @@ onMounted(() => {
       <AlertDialogHeader>
         <AlertDialogTitle>确定要删除该用户吗？</AlertDialogTitle>
         <AlertDialogDescription>
-          此操作将逻辑删除该用户。用户数据将保留在数据库中，但不会在列表中显示。
+          此操作无法撤销。
         </AlertDialogDescription>
       </AlertDialogHeader>
       <AlertDialogFooter>

@@ -10,8 +10,8 @@ RUN npm install
 COPY . .
 RUN npm run build
 
-# The static files will be served by Nginx in the compose stack
-# We just need this stage to produce the 'dist' folder
+# 将构建产物复制到 /built，启动时再复制到 volume /app/dist 供 nginx 使用
 FROM alpine:latest
 WORKDIR /app
-COPY --from=build /app/dist ./dist
+COPY --from=build /app/dist ./built
+RUN mkdir -p /app/dist
