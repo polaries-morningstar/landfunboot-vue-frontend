@@ -9,20 +9,19 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useRouter } from 'vue-router'
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import ChangeSelfPasswordDialog from './ChangeSelfPasswordDialog.vue'
 import { useAuth } from '@/composables/useAuth'
 
-// Mock User for now, later fetch from store/api
-const user = {
-    username: 'Admin',
-    email: 'admin@example.com',
-    initials: 'AD'
-}
-
 const router = useRouter()
-const { clearAuth } = useAuth()
+const { user, clearAuth } = useAuth()
 const changePasswordOpen = ref(false)
+
+const initials = computed(() => {
+  const u = user.value
+  if (!u?.username) return ''
+  return u.username.slice(0, 2).toUpperCase()
+})
 
 const logout = () => {
     clearAuth()
@@ -78,18 +77,18 @@ const logout = () => {
           <div class="flex items-center gap-2 cursor-pointer px-1 py-1 rounded-md transition-colors"
                @mouseover="(e: MouseEvent) => (e.currentTarget as HTMLElement).style.background = 'hsl(var(--muted))'"
                @mouseleave="(e: MouseEvent) => (e.currentTarget as HTMLElement).style.background = 'transparent'">
-            <span class="text-[13.5px] font-medium hidden md:block" style="color: hsl(var(--foreground));">{{ user.username }}</span>
+            <span class="text-[13.5px] font-medium hidden md:block" style="color: hsl(var(--foreground));">{{ user?.username }}</span>
             <Avatar class="h-8 w-8">
               <AvatarImage src="" />
-              <AvatarFallback class="text-xs font-semibold text-white" style="background: hsl(var(--primary));">{{ user.initials }}</AvatarFallback>
+              <AvatarFallback class="text-xs font-semibold text-white" style="background: hsl(var(--primary));">{{ initials }}</AvatarFallback>
             </Avatar>
           </div>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" class="w-48">
           <DropdownMenuLabel class="font-normal">
             <div class="flex flex-col gap-0.5">
-              <span class="text-sm font-semibold">{{ user.username }}</span>
-              <span class="text-xs" style="color: hsl(var(--muted-foreground));">{{ user.email }}</span>
+              <span class="text-sm font-semibold">{{ user?.username }}</span>
+              <span class="text-xs" style="color: hsl(var(--muted-foreground));">{{ user?.email }}</span>
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />

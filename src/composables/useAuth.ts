@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue'
 import { authApi, type UserInfo } from '@/api/auth'
+import { userApi } from '@/api/user'
 
 // Global state
 const user = ref<UserInfo | null>(null)
@@ -17,8 +18,14 @@ export function useAuth() {
         try {
             isLoading.value = true
             const res = await authApi.info()
-            user.value = res.user
             permissions.value = new Set(res.permissions || [])
+            const selfUser = await userApi.getSelf()
+            user.value = {
+                id: selfUser.id,
+                username: selfUser.username,
+                email: selfUser.email,
+                isSuperuser: selfUser.superuser
+            }
             initialized.value = true
             return true
         } catch (e) {

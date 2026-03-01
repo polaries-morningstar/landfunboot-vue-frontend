@@ -50,6 +50,11 @@ export const userApi = {
             method: 'GET'
         })
     },
+    getSelf: () => {
+        return request<User>('/api/sys/user/self', {
+            method: 'GET'
+        })
+    },
     create: (data: UserPayload & { password: string }) => {
         return request<User>('/api/sys/user', {
             method: 'POST',
