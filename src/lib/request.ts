@@ -1,69 +1,83 @@
-import { useToast } from '@/components/ui/toast/use-toast'
+import axios, { type AxiosRequestConfig } from 'axios'
+import { toast } from '@/components/ui/toast/use-toast'
 
-const { toast } = useToast()
-
-interface RequestOptions extends RequestInit {
-    params?: Record<string, string | number | boolean | undefined>;
+export interface RequestOptions {
+    method?: string
+    body?: BodyInit | object
+    params?: Record<string, string | number | boolean | undefined>
+    headers?: Record<string, string>
 }
 
-export async function request<T>(url: string, options: RequestOptions = {}): Promise<T> {
+const instance = axios.create({
+    baseURL: '',
+    timeout: 30000,
+    headers: { 'Content-Type': 'application/json' }
+})
+
+instance.interceptors.request.use((config) => {
     const token = localStorage.getItem('token')
-
-    const headers = new Headers(options.headers)
     if (token) {
-        headers.set('Authorization', token)
+        config.headers.Authorization = token
     }
-    if (!headers.has('Content-Type') && !(options.body instanceof FormData)) {
-        headers.set('Content-Type', 'application/json')
+    if (config.headers['Content-Type'] === 'application/json' && config.data instanceof FormData) {
+        delete config.headers['Content-Type']
     }
+    return config
+})
 
-    let finalUrl = url
-    if (options.params) {
-        const params = new URLSearchParams()
-        Object.entries(options.params).forEach(([key, value]) => {
-            if (value !== undefined) {
-                params.append(key, String(value))
-            }
-        })
-        const queryString = params.toString()
-        if (queryString) {
-            finalUrl += (url.includes('?') ? '&' : '?') + queryString
+instance.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response?.status === 401) {
+            localStorage.removeItem('token')
+            window.location.href = '/login'
         }
+        return Promise.reject(error)
     }
+)
 
+export async function request<T>(url: string, options: RequestOptions = {}): Promise<T> {
+    const { method = 'GET', body, params, headers } = options
+    const config: AxiosRequestConfig = {
+        url,
+        method: method as any,
+        params,
+        headers
+    }
+    if (body !== undefined) {
+        config.data = body instanceof FormData ? body : body
+    }
     try {
-        const response = await fetch(finalUrl, {
-            ...options,
-            headers,
-        })
-
-        if (!response.ok) {
-            if (response.status === 401) {
-                localStorage.removeItem('token')
-                window.location.href = '/login'
-                throw new Error('Unauthorized')
-            }
-            let errorMsg = '请求失败'
-            try {
-                const data = await response.json()
-                errorMsg = data.msg || data.message || errorMsg
-            } catch (e) { }
-            throw new Error(errorMsg)
+        const response = await instance.request(config)
+        const res = response.data
+        if (res && res.code !== undefined && res.code !== 200) {
+            const msg = res.message || res.msg || '请求失败'
+            toast({
+                title: '错误',
+                description: msg,
+                variant: 'destructive'
+            })
+            throw new Error(msg)
         }
-
-        const res = await response.json()
-        // Backend standard: { code: 200, message: "...", data: ... }
-        if (res.code !== 200) {
-            throw new Error(res.message || 'Error')
-        }
-        return res.data as T
+        return (res?.data ?? res) as T
     } catch (error: any) {
-        console.error('API Error:', error)
-        toast({
-            title: '错误',
-            description: error.message,
-            variant: 'destructive',
-        })
+        if (error.response?.status === 401) {
+            throw error
+        }
+        // Only show toast for real HTTP errors (axios error); avoid duplicate when we threw in try above
+        const isAxiosError = error.response != null
+        const msg =
+            error.response?.data?.message ||
+            error.response?.data?.msg ||
+            error.message ||
+            '请求失败'
+        if (isAxiosError) {
+            toast({
+                title: '错误',
+                description: msg,
+                variant: 'destructive'
+            })
+        }
         throw error
     }
 }

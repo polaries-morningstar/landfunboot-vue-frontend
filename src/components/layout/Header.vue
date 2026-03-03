@@ -9,19 +9,41 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useRouter } from 'vue-router'
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import ChangeSelfPasswordDialog from './ChangeSelfPasswordDialog.vue'
+import ProfileDialog from './ProfileDialog.vue'
 import { useAuth } from '@/composables/useAuth'
 
 const router = useRouter()
-const { user, clearAuth } = useAuth()
+const { user, clearAuth, fetchUserInfo } = useAuth()
 const changePasswordOpen = ref(false)
+const profileOpen = ref(false)
+const isFullscreen = ref(false)
 
 const initials = computed(() => {
   const u = user.value
   if (!u?.username) return ''
   return u.username.slice(0, 2).toUpperCase()
 })
+
+const toggleFullscreen = () => {
+  if (document.fullscreenElement) {
+    document.exitFullscreen()
+  } else {
+    document.documentElement.requestFullscreen()
+  }
+}
+
+const onFullscreenChange = () => {
+  isFullscreen.value = !!document.fullscreenElement
+}
+
+onMounted(() => document.addEventListener('fullscreenchange', onFullscreenChange))
+onUnmounted(() => document.removeEventListener('fullscreenchange', onFullscreenChange))
+
+const handleProfileSuccess = () => {
+  fetchUserInfo()
+}
 
 const logout = () => {
     clearAuth()
@@ -62,10 +84,12 @@ const logout = () => {
       <!-- Fullscreen button -->
       <button class="w-8 h-8 rounded-md hidden md:flex items-center justify-center transition-colors duration-150 border-0 bg-transparent cursor-pointer"
               style="color: hsl(var(--muted-foreground));"
-              title="全屏"
+              :title="isFullscreen ? '退出全屏' : '全屏'"
+              @click="toggleFullscreen"
               @mouseover="(e: MouseEvent) => { (e.currentTarget as HTMLElement).style.background = 'hsl(var(--muted))'; (e.currentTarget as HTMLElement).style.color = 'hsl(var(--foreground))' }"
               @mouseleave="(e: MouseEvent) => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'hsl(var(--muted-foreground))' }">
-        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+        <svg v-if="!isFullscreen" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+        <svg v-else xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/></svg>
       </button>
 
       <!-- Divider -->
@@ -92,7 +116,7 @@ const logout = () => {
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem>个人设置</DropdownMenuItem>
+          <DropdownMenuItem @click="profileOpen = true">个人设置</DropdownMenuItem>
           <DropdownMenuItem @click="changePasswordOpen = true">修改密码</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem @click="logout" class="text-destructive focus:text-destructive">
@@ -105,4 +129,5 @@ const logout = () => {
   </header>
 
   <ChangeSelfPasswordDialog v-model:open="changePasswordOpen" />
+  <ProfileDialog v-model:open="profileOpen" @success="handleProfileSuccess" />
 </template>

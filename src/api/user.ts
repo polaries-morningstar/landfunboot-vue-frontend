@@ -86,6 +86,12 @@ export const userApi = {
             body: JSON.stringify(data)
         })
     },
+    updateSelf: (data: { username: string }) => {
+        return request<User>('/api/sys/user/self', {
+            method: 'PUT',
+            body: JSON.stringify(data)
+        })
+    },
     changeSelfPassword: (data: { password: string }) => {
         return request<void>('/api/sys/user/password/self', {
             method: 'POST',

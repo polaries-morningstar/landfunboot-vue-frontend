@@ -1,6 +1,34 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Login from '@/views/Login.vue'
-import { useAuth } from '@/composables/useAuth'
+import { useAuthStore } from '@/stores/auth'
+import type { MenuTreeNode } from '@/api/auth'
+
+/** path (without leading slash) -> lazy component for dynamic routes */
+const pathToComponent: Record<string, () => Promise<unknown>> = {
+    'system/user': () => import('@/views/system/user/index.vue'),
+    'system/role': () => import('@/views/system/role/index.vue'),
+    'system/dept': () => import('@/views/system/dept/index.vue'),
+    'system/menu': () => import('@/views/system/menu/index.vue'),
+    'monitor': () => import('@/views/monitor/index.vue'),
+    'monitor/online': () => import('@/views/monitor/online.vue'),
+    'messages': () => import('@/views/messages/index.vue'),
+    'messages/all': () => import('@/views/messages/all.vue')
+}
+
+function flattenMenuRoutes(nodes: MenuTreeNode[]): { path: string; permission?: string }[] {
+    const out: { path: string; permission?: string }[] = []
+    function walk(list: MenuTreeNode[]) {
+        for (const n of list) {
+            const path = n.path ? n.path.replace(/^\//, '') : ''
+            if (n.type === 'MENU' && path) {
+                out.push({ path, permission: n.permission ?? undefined })
+            }
+            if (n.children?.length) walk(n.children)
+        }
+    }
+    walk(nodes)
+    return out
+}
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
@@ -12,50 +40,14 @@ const router = createRouter({
         },
         {
             path: '/',
+            name: 'MainLayout',
             component: () => import('@/components/layout/MainLayout.vue'),
             redirect: '/welcome',
             children: [
                 {
                     path: 'welcome',
                     name: 'Welcome',
-                    component: () => import('@/views/Welcome.vue'),
-                    // No permission required — all authenticated users can see this
-                },
-                {
-                    path: 'system/user',
-                    name: 'SystemUser',
-                    component: () => import('@/views/system/user/index.vue'),
-                    meta: { permission: 'sys:user:list' }
-                },
-                {
-                    path: 'system/role',
-                    name: 'SystemRole',
-                    component: () => import('@/views/system/role/index.vue'),
-                    meta: { permission: 'sys:role:list' }
-                },
-                {
-                    path: 'system/dept',
-                    name: 'SystemDept',
-                    component: () => import('@/views/system/dept/index.vue'),
-                    meta: { permission: 'sys:dept:list' }
-                },
-                {
-                    path: 'system/menu',
-                    name: 'SystemMenu',
-                    component: () => import('@/views/system/menu/index.vue'),
-                    meta: { permission: 'sys:menu:list' }
-                },
-                {
-                    path: 'monitor',
-                    name: 'Monitor',
-                    component: () => import('@/views/monitor/index.vue'),
-                    meta: { permission: 'sys:monitor:info' }
-                },
-                {
-                    path: 'monitor/online',
-                    name: 'MonitorOnline',
-                    component: () => import('@/views/monitor/online.vue'),
-                    meta: { permission: 'sys:user:online' }
+                    component: () => import('@/views/Welcome.vue')
                 }
             ]
         }
@@ -64,30 +56,43 @@ const router = createRouter({
 
 router.beforeEach(async (to, _from, next) => {
     const token = localStorage.getItem('token')
-    const { initialized, fetchUserInfo, hasPermission } = useAuth()
+    const store = useAuthStore()
 
-    // Unauthenticated
     if (!token && to.name !== 'login') {
         return next({ name: 'login' })
     }
 
-    // Authenticated & Not Initialized
-    if (token && !initialized.value && to.name !== 'login') {
-        const success = await fetchUserInfo()
-        if (!success) {
-            return next({ name: 'login' }) // Token invalid or expired
-        }
+    if (token && !store.initialized && to.name !== 'login') {
+        const success = await store.fetchUserInfo()
+        if (!success) return next({ name: 'login' })
     }
 
-    // Permission check — redirect to welcome page (not root) to break the redirect loop
+    if (token && store.initialized && !store.menusLoaded && to.name !== 'login') {
+        await store.loadMenus()
+        const items = flattenMenuRoutes(store.menus ?? [])
+        for (const { path, permission } of items) {
+            const load = pathToComponent[path]
+            if (load) {
+                router.addRoute('MainLayout', {
+                    path,
+                    name: path.replace(/\//g, '_').replace(/^_/, '') || 'Dynamic',
+                    component: load,
+                    meta: { permission }
+                })
+            } else {
+                console.warn('No component for menu path:', path)
+            }
+        }
+        return next({ ...to, replace: true })
+    }
+
     if (to.meta.permission) {
-        if (!hasPermission(to.meta.permission as string)) {
+        if (!store.hasPermission(to.meta.permission as string)) {
             console.warn(`Access Denied to ${to.path} (Requires: ${to.meta.permission})`)
             return next({ name: 'Welcome' })
         }
     }
 
-    // Prevent logged-in users from seeing login page repeatedly
     if (token && to.name === 'login') {
         return next({ name: 'Welcome' })
     }

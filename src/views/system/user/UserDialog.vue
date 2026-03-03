@@ -133,6 +133,10 @@ watch(() => props.open, async (newVal) => {
 })
 
 const onFormSubmit = form.handleSubmit(async (values) => {
+  if (!values.id && !values.password) {
+    form.setFieldError('password', '新增用户时密码为必填项')
+    return
+  }
   loading.value = true
   try {
     const payload = {
@@ -144,7 +148,6 @@ const onFormSubmit = form.handleSubmit(async (values) => {
       roleId: values.roleId ?? null,
       password: values.password || undefined,
     }
-    console.log('Submitting payload:', payload)
 
     await userApi.save(payload as any)
     toast({
@@ -175,7 +178,7 @@ const onFormSubmit = form.handleSubmit(async (values) => {
         <form @submit="onFormSubmit" class="space-y-4 pr-1">
           <FormField v-slot="{ componentField }" name="username">
             <FormItem>
-              <FormLabel>用户名</FormLabel>
+              <FormLabel>用户名 <span class="text-destructive">*</span></FormLabel>
               <FormControl>
                 <Input placeholder="请输入用户名" v-bind="componentField" />
               </FormControl>
@@ -185,7 +188,7 @@ const onFormSubmit = form.handleSubmit(async (values) => {
 
           <FormField v-slot="{ componentField }" name="email">
             <FormItem>
-              <FormLabel>邮箱</FormLabel>
+              <FormLabel>邮箱 <span class="text-destructive">*</span></FormLabel>
               <FormControl>
                 <Input placeholder="admin@example.com" v-bind="componentField" />
               </FormControl>
@@ -195,7 +198,7 @@ const onFormSubmit = form.handleSubmit(async (values) => {
 
           <FormField v-if="!user" v-slot="{ componentField }" name="password">
             <FormItem>
-              <FormLabel>密码</FormLabel>
+              <FormLabel>密码 <span class="text-destructive">*</span></FormLabel>
               <FormControl>
                 <Input type="password" placeholder="******" v-bind="componentField" />
               </FormControl>

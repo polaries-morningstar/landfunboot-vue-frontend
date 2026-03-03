@@ -1,30 +1,33 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { useAuth } from '@/composables/useAuth'
-
+import { storeToRefs } from 'pinia'
+import { useAuthStore } from '@/stores/auth'
 const route = useRoute()
-const { hasPermission } = useAuth()
+const { menus } = storeToRefs(useAuthStore())
 
-const menus = [
-    {
-        title: '系统管理',
-        permission: 'DIR_SYS_ADMIN',
-        items: [
-            { title: '用户管理', href: '/system/user', icon: 'user', permission: 'sys:user:list' },
-            { title: '角色管理', href: '/system/role', icon: 'role', permission: 'sys:role:list' },
-            { title: '部门管理', href: '/system/dept', icon: 'dept', permission: 'sys:dept:list' },
-            { title: '菜单管理', href: '/system/menu', icon: 'menu', permission: 'sys:menu:list' },
-        ]
-    },
-    {
-        title: '系统监控',
-        permission: 'DIR_SYS_MONITOR',
-        items: [
-            { title: '服务监控', href: '/monitor', icon: 'monitor', permission: 'sys:monitor:info' },
-            { title: '在线用户', href: '/monitor/online', icon: 'online', permission: 'sys:user:online' },
-        ]
-    }
-]
+/** Normalize backend tree to groups with items (DIR nodes as groups, their MENU children as items) */
+const visibleMenus = computed(() => {
+    const list = menus.value || []
+    return list
+        .filter((n) => n.type === 'DIR' && n.children?.length)
+        .map((group) => ({
+            title: group.name,
+            items: (group.children || [])
+                .filter((c) => c.type === 'MENU' && c.path)
+                .map((c) => {
+                    const path = c.path ?? ''
+                    const href = path.startsWith('/') ? path : `/${path}`
+                    return {
+                        title: c.name,
+                        href,
+                        icon: (c.icon || 'default').toLowerCase(),
+                        permission: c.permission ?? undefined
+                    }
+                })
+        }))
+        .filter((g) => g.items.length > 0)
+})
 </script>
 
 <template>
@@ -59,8 +62,8 @@ const menus = [
           <span>工作台</span>
         </router-link>
       </div>
-      <template v-for="group in menus" :key="group.title">
-       <div v-if="hasPermission(group.permission)" class="mb-2">
+      <template v-for="group in visibleMenus" :key="group.title">
+       <div class="mb-2">
         <!-- Group Label -->
         <div class="px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.7px]"
              style="color: hsl(var(--sidebar-text-muted));">
@@ -68,10 +71,9 @@ const menus = [
         </div>
         <!-- Items -->
         <div class="px-2 grid gap-0.5">
-          <template v-for="item in group.items" :key="item.href">
+          <template v-for="item in group.items" :key="String(item.href)">
           <router-link
-            v-if="hasPermission(item.permission)"
-            :to="item.href"
+            :to="item.href as string"
             class="flex items-center gap-2.5 px-3 py-[9px] rounded-md text-[13.5px] font-[450] transition-all duration-150"
             :style="route.path === item.href
               ? 'background: hsl(var(--primary)); color: white;'
@@ -91,6 +93,12 @@ const menus = [
             <svg v-else-if="item.icon === 'monitor'" class="w-4 h-4 flex-shrink-0 opacity-80" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
             <!-- Online users icon -->
             <svg v-else-if="item.icon === 'online'" class="w-4 h-4 flex-shrink-0 opacity-80" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><circle cx="19" cy="11" r="2"/><path d="M23 21v-1a4 4 0 0 0-3-3.85"/></svg>
+            <!-- Message icon -->
+            <svg v-else-if="item.icon === 'message'" class="w-4 h-4 flex-shrink-0 opacity-80" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <!-- List icon (for 全部消息) -->
+            <svg v-else-if="item.icon === 'list'" class="w-4 h-4 flex-shrink-0 opacity-80" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            <!-- Settings icon -->
+            <svg v-else-if="item.icon === 'settings'" class="w-4 h-4 flex-shrink-0 opacity-80" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             <!-- Default icon -->
             <svg v-else class="w-4 h-4 flex-shrink-0 opacity-80" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/></svg>
 

@@ -12,9 +12,24 @@ export interface AuthInfoResponse {
     permissions: string[];
 }
 
+export interface MenuTreeNode {
+    id: number
+    name: string
+    path?: string | null
+    icon?: string | null
+    permission?: string | null
+    type?: string
+    children?: MenuTreeNode[]
+}
+
 export const authApi = {
     info() {
         return request<AuthInfoResponse>('/api/auth/info', {
+            method: 'GET'
+        })
+    },
+    menus() {
+        return request<MenuTreeNode[]>('/api/auth/menus', {
             method: 'GET'
         })
     }

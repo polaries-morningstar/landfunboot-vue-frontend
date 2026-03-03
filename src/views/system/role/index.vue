@@ -94,6 +94,7 @@ const getDataScopeLabel = (scope: string) => {
         'ALL': '所有数据',
         'DEPT_SAME': '所在部门',
         'DEPT_RECURSIVE': '所在部门及子部门',
+        'DEPT_CUSTOM': '自定义部门',
         'SELF': '个人数据'
     }
     return map[scope] || scope

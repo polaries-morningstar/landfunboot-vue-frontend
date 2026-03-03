@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input'
 import { useToast } from '@/components/ui/toast/use-toast'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { request } from '@/lib/request'
 
 const { toast } = useToast()
 const router = useRouter()
@@ -34,48 +35,25 @@ const isLoading = ref(false)
 const onSubmit = form.handleSubmit(async (values) => {
   isLoading.value = true
   try {
-    const response = await fetch('/api/auth/login', {
+    const data = await request<{ token: string }>('/api/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(values),
+      body: values,
     })
-
-    if (!response.ok) {
-        let errorMsg = '登录失败'
-        try {
-            const data = await response.json()
-            errorMsg = data.msg || data.message || errorMsg
-        } catch (e) {}
-        throw new Error(errorMsg)
-    }
-
-    const data = await response.json()
-    
-    // Check custom business error codes (Spring returns 200 HTTP status but code != 200 for errors)
-    if (data.code && data.code !== 200) {
-        throw new Error(data.message || data.msg || '登录失败')
-    }
-
-    const token = data.data?.token
+    const token = data?.token
     if (token) {
-        localStorage.setItem('token', token)
-        toast({
-          title: '登录成功',
-          description: '即将进入系统...',
-        })
-        setTimeout(() => {
-            router.push('/')
-        }, 500)
+      localStorage.setItem('token', token)
+      toast({
+        title: '登录成功',
+        description: '即将进入系统...',
+      })
+      setTimeout(() => {
+        router.push('/')
+      }, 500)
     } else {
-         throw new Error('未获取到令牌')
+      throw new Error('未获取到令牌')
     }
-
-  } catch (error: any) {
-    toast({
-      title: '登录失败',
-      description: error.message,
-      variant: 'destructive',
-    })
+  } catch (_error: any) {
+    // Error already shown by request()
   } finally {
     isLoading.value = false
   }
