@@ -29,8 +29,15 @@ instance.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response?.status === 401) {
-            localStorage.removeItem('token')
-            window.location.href = '/login'
+            const requestUrl: string = error.response.config?.url || ''
+            const isLoginRequest = requestUrl.includes('/auth/login')
+            const isOnLoginPage = window.location.pathname.endsWith('/login')
+
+            // 仅在非登录页、非登录接口的 401 时才重定向到登录页
+            if (!isLoginRequest && !isOnLoginPage) {
+                localStorage.removeItem('token')
+                window.location.href = '/login'
+            }
         }
         return Promise.reject(error)
     }
@@ -61,9 +68,6 @@ export async function request<T>(url: string, options: RequestOptions = {}): Pro
         }
         return (res?.data ?? res) as T
     } catch (error: any) {
-        if (error.response?.status === 401) {
-            throw error
-        }
         // Only show toast for real HTTP errors (axios error); avoid duplicate when we threw in try above
         const isAxiosError = error.response != null
         const msg =
