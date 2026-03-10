@@ -30,7 +30,7 @@ const { toast } = useToast()
 const { hasPermission } = useAuth()
 const loading = ref(false)
 const rawData = ref<Menu[]>([])
-const displayData = ref<(Menu & { level: number, expanded?: boolean, hasChildren?: boolean })[]>([])
+const displayData = ref<(Menu & { level: number, expanded?: boolean, hasChildren?: boolean, parent?: { id: number, name: string } })[]>([])
 const expandedKeys = ref<Set<number>>(new Set())
 
 // Dialog states
@@ -52,14 +52,20 @@ const fetchData = async () => {
 }
 
 const updateDisplayData = () => {
-    const list: (Menu & { level: number, expanded?: boolean, hasChildren?: boolean })[] = []
-    const traverse = (items: Menu[], level = 0) => {
+    const list: (Menu & { level: number, expanded?: boolean, hasChildren?: boolean, parent?: { id: number, name: string } })[] = []
+    const traverse = (items: Menu[], level = 0, parent?: Menu) => {
         items.forEach(item => {
             const hasChildren = item.children && item.children.length > 0
             const expanded = expandedKeys.value.has(item.id)
-            list.push({ ...item, level, expanded, hasChildren })
+            list.push({
+                ...item,
+                level,
+                expanded,
+                hasChildren,
+                parent: parent ? { id: parent.id, name: parent.name } : undefined
+            })
             if (hasChildren && expanded) {
-                traverse(item.children!, level + 1)
+                traverse(item.children!, level + 1, item)
             }
         })
     }

@@ -93,8 +93,9 @@ const flattenOptions = computed(() => {
 
     const traverse = (items: Menu[], level = 0) => {
         items.forEach(item => {
-            if (!excludeIds.has(item.id) && item.type === 'MENU') {
-                list.push({ id: item.id, name: '  '.repeat(level) + item.name })
+            if (!excludeIds.has(item.id) && (item.type === 'MENU' || item.type === 'DIR')) {
+                const label = '  '.repeat(level) + (item.type === 'DIR' ? `目录 - ${item.name}` : item.name)
+                list.push({ id: item.id, name: label })
                 if (item.children) traverse(item.children, level + 1)
             }
         })
@@ -133,7 +134,14 @@ watch(() => props.open, (newVal) => {
 const onFormSubmit = form.handleSubmit(async (values) => {
   loading.value = true
   try {
-    await menuApi.save(values as any)
+    const payload: Record<string, unknown> = { ...values }
+    if (payload.parentId === null || payload.parentId === undefined) {
+      payload.parentId = 0
+    }
+    if (payload.id === undefined || payload.id === null) {
+      delete payload.id
+    }
+    await menuApi.save(payload as any)
     toast({
       title: props.menu ? '修改成功' : '添加成功',
       description: `菜单 ${values.name} 已${props.menu ? '更新' : '添加'}`,
