@@ -92,7 +92,7 @@ export const userApi = {
             body: JSON.stringify(data)
         })
     },
-    changeSelfPassword: (data: { password: string }) => {
+    changeSelfPassword: (data: { oldPassword: string; password: string }) => {
         return request<void>('/api/sys/user/password/self', {
             method: 'POST',
             body: JSON.stringify(data)

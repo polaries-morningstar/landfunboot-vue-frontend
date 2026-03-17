@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useForm } from 'vee-validate'
 import { toTypedSchema } from '@vee-validate/zod'
 import * as z from 'zod'
@@ -37,6 +37,7 @@ const loading = ref(false)
 
 const formSchema = toTypedSchema(
   z.object({
+    oldPassword: z.string().min(1, '请输入当前密码'),
     password: z.string().min(6, '密码至少6个字符'),
     confirmPassword: z.string().min(6, '密码至少6个字符')
   }).refine((data) => data.password === data.confirmPassword, {
@@ -48,12 +49,12 @@ const formSchema = toTypedSchema(
 const form = useForm({
   validationSchema: formSchema,
   initialValues: {
+    oldPassword: '',
     password: '',
     confirmPassword: ''
   }
 })
 
-import { watch } from 'vue'
 watch(() => props.open, (newVal) => {
   if (newVal) {
     form.resetForm()
@@ -63,8 +64,9 @@ watch(() => props.open, (newVal) => {
 const onFormSubmit = form.handleSubmit(async (values) => {
   loading.value = true
   try {
-    await userApi.changeSelfPassword({ 
-      password: values.password 
+    await userApi.changeSelfPassword({
+      oldPassword: values.oldPassword,
+      password: values.password
     })
     toast({
       title: '修改成功',
@@ -89,9 +91,19 @@ const onFormSubmit = form.handleSubmit(async (values) => {
           修改您自己的登录密码。
         </DialogDescription>
       </DialogHeader>
-      
+
       <div class="py-4">
         <form @submit="onFormSubmit" class="space-y-4">
+          <FormField v-slot="{ componentField }" name="oldPassword">
+            <FormItem>
+              <FormLabel>当前密码</FormLabel>
+              <FormControl>
+                <Input type="password" placeholder="请输入当前密码" v-bind="componentField" />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          </FormField>
+
           <FormField v-slot="{ componentField }" name="password">
             <FormItem>
               <FormLabel>新密码</FormLabel>

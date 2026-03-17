@@ -62,7 +62,7 @@ export const useAuthStore = defineStore('auth', () => {
     function hasPermission(permission?: string): boolean {
         if (!permission) return true
         if (user.value?.isSuperuser) return true
-        return permissions.value.has('*:*:*') || permissions.value.has(permission)
+        return permissions.value.has('*') || permissions.value.has(permission)
     }
 
     const permissionsList = computed(() => Array.from(permissions.value))
